@@ -42,7 +42,6 @@ func _on_canvas_editor_button_toggled(toggled_on: bool) -> void:
 		if _canvas_editor_camera_3d:
 			_canvas_editor_camera_3d.queue_free()
 			_canvas_editor_camera_3d = null
-		get_tree().process_frame.disconnect(_canvas_editor_camera_update_transform)
 
 
 func _canvas_editor_camera_update_transform() -> void:
