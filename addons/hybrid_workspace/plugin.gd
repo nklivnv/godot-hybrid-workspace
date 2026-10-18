@@ -32,16 +32,25 @@ func _on_canvas_editor_button_toggled(toggled_on: bool) -> void:
 	
 	viewport_2d.disable_3d = not toggled_on
 	
+	var tree: SceneTree = get_tree()
+	
 	if toggled_on:
+		
 		if not _canvas_editor_camera_3d:
 			_canvas_editor_camera_3d = Camera3D.new()
 			viewport_2d.add_child(_canvas_editor_camera_3d)
 			_canvas_editor_camera_3d.make_current()
-		get_tree().process_frame.connect(_canvas_editor_camera_update_transform)
+		
+		if not tree.process_frame.is_connected(_canvas_editor_camera_update_transform):
+			tree.process_frame.connect(_canvas_editor_camera_update_transform)
 	else:
+		
 		if _canvas_editor_camera_3d:
 			_canvas_editor_camera_3d.queue_free()
 			_canvas_editor_camera_3d = null
+		
+		if tree.process_frame.is_connected(_canvas_editor_camera_update_transform):
+			tree.process_frame.disconnect(_canvas_editor_camera_update_transform)
 
 
 func _canvas_editor_camera_update_transform() -> void:
