@@ -64,11 +64,11 @@
 #	viewport_3d.world_2d = viewport_2d.world_2d if toggled_on else null
 
 
-
-
 @tool
 extends EditorPlugin
 
+
+var canvas_editor_sub_viewport_container: SubViewportContainer
 
 
 func _enter_tree() -> void:
@@ -100,11 +100,17 @@ func _on_canvas_editor_button_toggled(toggled_on: bool) -> void:
 
 func _update_canvas_editor(scene_root: Node) -> void:
 	
+	if canvas_editor_sub_viewport_container:
+		canvas_editor_sub_viewport_container.queue_free()
+		canvas_editor_sub_viewport_container = null
+	
 	if not scene_root: return
 	
-	var canvas_editor_sub_viewport_container := SubViewportContainer.new()
+	canvas_editor_sub_viewport_container = SubViewportContainer.new()
+	
 	tree_exiting.connect(canvas_editor_sub_viewport_container.queue_free)
 	scene_changed.connect(canvas_editor_sub_viewport_container.queue_free.unbind(1))
+	
 	EditorInterface.get_dock_by_name("2D").hidden.connect(canvas_editor_sub_viewport_container.hide)
 	EditorInterface.get_dock_by_name("2D").draw.connect(canvas_editor_sub_viewport_container.show)
 	
