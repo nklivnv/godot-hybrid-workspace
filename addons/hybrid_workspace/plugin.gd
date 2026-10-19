@@ -1,31 +1,8 @@
-#@tool
-#extends EditorPlugin
-#
+
+
 #var _canvas_editor_camera_3d: Camera3D
-#
-#
-#func _enter_tree() -> void:
-#	_add_button("Show 3D", preload("icons/Node3D.svg"), EditorPlugin.CONTAINER_CANVAS_EDITOR_MENU, _on_canvas_editor_button_toggled)
-#	_add_button("Show 2D", preload("icons/Node2D.svg"), EditorPlugin.CONTAINER_SPATIAL_EDITOR_MENU, _on_spatial_editor_button_toggled)
-#
-#
-#func _add_button(button_text: String, icon: Texture2D, container: EditorPlugin.CustomControlContainer, button_callback: Callable) -> void:
-#	var button := Button.new()
-#	button.toggle_mode = true
-#	button.text = button_text
-#	button.icon = icon
-#	
-#	button.toggled.connect(button_callback)
-#	button.tree_exiting.connect(button_callback.bind(false))
-#	
-#	add_control_to_container(container, button)
-#	
-#	tree_exiting.connect(func() -> void:
-#		remove_control_from_container(container, button)
-#		button.queue_free()
-#	)
-#
-#
+
+
 #func _on_canvas_editor_button_toggled(toggled_on: bool) -> void:
 #	var viewport_2d := EditorInterface.get_editor_viewport_2d()
 #	var viewport_3d := EditorInterface.get_editor_viewport_3d()
@@ -55,13 +32,6 @@
 #
 #func _canvas_editor_camera_update_transform() -> void:
 #	_canvas_editor_camera_3d.global_transform = EditorInterface.get_editor_viewport_3d().get_camera_3d().global_transform
-#
-#
-#func _on_spatial_editor_button_toggled(toggled_on: bool) -> void:
-#	var viewport_2d := EditorInterface.get_editor_viewport_2d()
-#	var viewport_3d := EditorInterface.get_editor_viewport_3d()
-#	
-#	viewport_3d.world_2d = viewport_2d.world_2d if toggled_on else null
 
 
 @tool
@@ -107,6 +77,7 @@ func _update_canvas_editor(scene_root: Node) -> void:
 	if not scene_root: return
 	
 	canvas_editor_sub_viewport_container = SubViewportContainer.new()
+	canvas_editor_sub_viewport_container.visible = EditorInterface.get_dock_by_name("2D").visible
 	
 	tree_exiting.connect(canvas_editor_sub_viewport_container.queue_free)
 	scene_changed.connect(canvas_editor_sub_viewport_container.queue_free.unbind(1))
@@ -134,11 +105,12 @@ func _update_canvas_editor(scene_root: Node) -> void:
 
 
 static func _canvas_editor_camera_update_transform(canvas_editor_camera_3d: Camera3D) -> void:
-	var spatial_editor_camera_3d: Camera3D = EditorInterface.get_editor_viewport_3d().get_camera_3d()
-	if spatial_editor_camera_3d: canvas_editor_camera_3d.global_transform = spatial_editor_camera_3d.global_transform
+	var target_camera: Camera3D = EditorInterface.get_edited_scene_root().get_viewport().get_camera_3d()
+	if not target_camera: target_camera = EditorInterface.get_editor_viewport_3d().get_camera_3d()
+	if target_camera: canvas_editor_camera_3d.global_transform = target_camera.global_transform
 
 
-func _on_spatial_editor_button_toggled(toggled_on: bool) -> void:
+static func _on_spatial_editor_button_toggled(toggled_on: bool) -> void:
 	var viewport_2d := EditorInterface.get_editor_viewport_2d()
 	var viewport_3d := EditorInterface.get_editor_viewport_3d()
 	
