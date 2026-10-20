@@ -1,57 +1,23 @@
-
-
-#var _canvas_editor_camera_3d: Camera3D
-
-
-#func _on_canvas_editor_button_toggled(toggled_on: bool) -> void:
-#	var viewport_2d := EditorInterface.get_editor_viewport_2d()
-#	var viewport_3d := EditorInterface.get_editor_viewport_3d()
-#	
-#	viewport_2d.disable_3d = not toggled_on
-#	
-#	var tree: SceneTree = get_tree()
-#	
-#	if toggled_on:
-#		
-#		if not _canvas_editor_camera_3d:
-#			_canvas_editor_camera_3d = Camera3D.new()
-#			viewport_2d.add_child(_canvas_editor_camera_3d)
-#			_canvas_editor_camera_3d.make_current()
-#		
-#		if not tree.process_frame.is_connected(_canvas_editor_camera_update_transform):
-#			tree.process_frame.connect(_canvas_editor_camera_update_transform)
-#	else:
-#		
-#		if _canvas_editor_camera_3d:
-#			_canvas_editor_camera_3d.queue_free()
-#			_canvas_editor_camera_3d = null
-#		
-#		if tree.process_frame.is_connected(_canvas_editor_camera_update_transform):
-#			tree.process_frame.disconnect(_canvas_editor_camera_update_transform)
-#
-#
-#func _canvas_editor_camera_update_transform() -> void:
-#	_canvas_editor_camera_3d.global_transform = EditorInterface.get_editor_viewport_3d().get_camera_3d().global_transform
-
-
 @tool
 extends EditorPlugin
 
 
-var canvas_editor_sub_viewport_container: SubViewportContainer
+var _preview_2d_enabled: bool
+
+var _preview_3d_viewport_container: SubViewportContainer
 
 
 func _enter_tree() -> void:
-	_add_button("Show 3D", preload("icons/Node3D.svg"), EditorPlugin.CONTAINER_CANVAS_EDITOR_MENU, _on_canvas_editor_button_toggled)
-	_add_button("Show 2D", preload("icons/Node2D.svg"), EditorPlugin.CONTAINER_SPATIAL_EDITOR_MENU, _on_spatial_editor_button_toggled)
+	_add_button("Show 2D", preload("icons/Node2D.svg"), CONTAINER_SPATIAL_EDITOR_MENU, _set_preview_2d_enabled)
+	_add_button("Show 3D", preload("icons/Node3D.svg"), CONTAINER_CANVAS_EDITOR_MENU, _set_preview_3d_enabled)
 
 
 func _add_button(button_text: String, icon: Texture2D, container: EditorPlugin.CustomControlContainer, toggled_callback: Callable) -> void:
 	var button := Button.new()
-	button.toggle_mode = true
 	button.text = button_text
 	button.icon = icon
 	
+	button.toggle_mode = true
 	button.toggled.connect(toggled_callback)
 	button.tree_exiting.connect(toggled_callback.bind(false))
 	
@@ -62,38 +28,73 @@ func _add_button(button_text: String, icon: Texture2D, container: EditorPlugin.C
 		button.queue_free())
 
 
-func _on_canvas_editor_button_toggled(toggled_on: bool) -> void:
-	if toggled_on: scene_changed.connect(_update_canvas_editor)
-	elif scene_changed.is_connected(_update_canvas_editor): scene_changed.disconnect(_update_canvas_editor)
-	_update_canvas_editor(EditorInterface.get_edited_scene_root() if toggled_on else null)
-
-
-func _update_canvas_editor(scene_root: Node) -> void:
+func _set_preview_2d_enabled(new: bool) -> void:
+	_preview_2d_enabled = new
 	
-	if canvas_editor_sub_viewport_container:
-		canvas_editor_sub_viewport_container.queue_free()
-		canvas_editor_sub_viewport_container = null
+	#var viewport_2d := EditorInterface.get_editor_viewport_2d()
+	#EditorInterface.inspect_object(viewport_2d)
+	
+	var spatial_editor: EditorDock = EditorInterface.get_dock_by_name("3D")
+	
+	if new: spatial_editor.visibility_changed.connect(_update_preview_2d)
+	else: spatial_editor.visibility_changed.disconnect(_update_preview_2d)
+	
+	_update_preview_2d()
+
+
+func _update_preview_2d() -> void:
+	var enabled: bool = is_preview_2d_enabled()
+	
+	var viewport_2d := EditorInterface.get_editor_viewport_2d()
+	var viewport_3d := EditorInterface.get_editor_viewport_3d()
+	
+	viewport_2d.render_target_update_mode = SubViewport.UPDATE_ALWAYS if enabled else SubViewport.UPDATE_DISABLED 
+	viewport_2d.oversampling = not enabled
+	
+	viewport_3d.world_2d = viewport_2d.world_2d if enabled else null
+	
+	# TODO: Исправить растягивание
+	viewport_3d.size_2d_override.x = ProjectSettings.get_setting("display/window/size/viewport_width")
+	viewport_3d.size_2d_override.y = ProjectSettings.get_setting("display/window/size/viewport_height")
+	viewport_3d.size_2d_override_stretch = enabled
+
+
+func _set_preview_3d_enabled(new: bool) -> void:
+	#var viewport_3d := EditorInterface.get_editor_viewport_3d()
+	#EditorInterface.inspect_object(viewport_3d)
+	
+	if new: scene_changed.connect(_update_preview_3d)
+	elif scene_changed.is_connected(_update_preview_3d): scene_changed.disconnect(_update_preview_3d)
+	_update_preview_3d(EditorInterface.get_edited_scene_root() if new else null)
+
+
+func _update_preview_3d(scene_root: Node) -> void:
+	
+	if _preview_3d_viewport_container:
+		_preview_3d_viewport_container.queue_free()
+		_preview_3d_viewport_container = null
 	
 	if not scene_root: return
+	var canvas_editor: EditorDock = EditorInterface.get_dock_by_name("2D")
 	
-	canvas_editor_sub_viewport_container = SubViewportContainer.new()
-	canvas_editor_sub_viewport_container.visible = EditorInterface.get_dock_by_name("2D").visible
+	_preview_3d_viewport_container = SubViewportContainer.new()
+	_preview_3d_viewport_container.visible = canvas_editor.visible
 	
-	tree_exiting.connect(canvas_editor_sub_viewport_container.queue_free)
-	scene_changed.connect(canvas_editor_sub_viewport_container.queue_free.unbind(1))
+	tree_exiting.connect(_preview_3d_viewport_container.queue_free)
+	scene_changed.connect(_preview_3d_viewport_container.queue_free.unbind(1))
 	
-	EditorInterface.get_dock_by_name("2D").hidden.connect(canvas_editor_sub_viewport_container.hide)
-	EditorInterface.get_dock_by_name("2D").draw.connect(canvas_editor_sub_viewport_container.show)
+	canvas_editor.hidden.connect(_preview_3d_viewport_container.hide)
+	canvas_editor.draw.connect(_preview_3d_viewport_container.show)
 	
-	scene_root.add_child(canvas_editor_sub_viewport_container)
-	scene_root.move_child(canvas_editor_sub_viewport_container, 0)
+	scene_root.add_child(_preview_3d_viewport_container)
+	scene_root.move_child(_preview_3d_viewport_container, 0)
 	
 	var sub_viewport := SubViewport.new()
 	sub_viewport.size.x = ProjectSettings.get_setting("display/window/size/viewport_width")
 	sub_viewport.size.y = ProjectSettings.get_setting("display/window/size/viewport_height")
 	
-	canvas_editor_sub_viewport_container.add_child(sub_viewport)
-	canvas_editor_sub_viewport_container.size = sub_viewport.size
+	_preview_3d_viewport_container.add_child(sub_viewport)
+	_preview_3d_viewport_container.size = sub_viewport.size
 	
 	var canvas_editor_camera := Camera3D.new()
 	sub_viewport.add_child(canvas_editor_camera)
@@ -110,8 +111,4 @@ static func _canvas_editor_camera_update_transform(canvas_editor_camera_3d: Came
 	if target_camera: canvas_editor_camera_3d.global_transform = target_camera.global_transform
 
 
-static func _on_spatial_editor_button_toggled(toggled_on: bool) -> void:
-	var viewport_2d := EditorInterface.get_editor_viewport_2d()
-	var viewport_3d := EditorInterface.get_editor_viewport_3d()
-	
-	viewport_3d.world_2d = viewport_2d.world_2d if toggled_on else null
+func is_preview_2d_enabled() -> bool: return _preview_2d_enabled and EditorInterface.get_dock_by_name("3D").visible
