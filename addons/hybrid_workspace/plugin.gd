@@ -115,18 +115,19 @@ func _set_preview_3d_enabled(enabled: bool) -> void:
 	_preview_3d_viewport_container.add_child(sub_viewport)
 	_preview_3d_viewport_container.size = sub_viewport.size
 	
-	var canvas_editor_camera := Camera3D.new()
-	sub_viewport.add_child(canvas_editor_camera)
-	canvas_editor_camera.make_current()
+	var camera := Camera3D.new()
+	sub_viewport.add_child(camera)
+	camera.make_current()
 	
 	var tree: SceneTree = get_tree()
-	tree.process_frame.connect(_canvas_editor_camera_update_transform.bind(canvas_editor_camera))
-	canvas_editor_camera.tree_exiting.connect(tree.process_frame.disconnect.bind(_canvas_editor_camera_update_transform))
+	tree.process_frame.connect(_camera_update_transform.bind(camera))
+	camera.tree_exiting.connect(tree.process_frame.disconnect.bind(_camera_update_transform))
 
 
-static func _canvas_editor_camera_update_transform(canvas_editor_camera_3d: Camera3D) -> void:
-	var target_camera: Camera3D = EditorInterface.get_edited_scene_root().get_viewport().get_camera_3d()
+static func _camera_update_transform(camera: Camera3D) -> void:
+	var target_camera: Camera3D = EditorInterface.get_editor_viewport_2d().get_camera_3d()
 	if not target_camera: target_camera = EditorInterface.get_editor_viewport_3d().get_camera_3d()
-	if target_camera: canvas_editor_camera_3d.global_transform = target_camera.global_transform
+	if target_camera: camera.global_transform = target_camera.global_transform
+
 
 #endregion
