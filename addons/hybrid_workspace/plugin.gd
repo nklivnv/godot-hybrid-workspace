@@ -29,12 +29,13 @@ func _add_button(button_text: String, icon: Texture2D, container: EditorPlugin.C
 var _preview_2d_enabled: bool
 var _preview_2d_canvas_layers: Array[CanvasLayer]
 
-func _set_preview_2d_enabled(new: bool) -> void:
-	_preview_2d_enabled = new
+
+func _set_preview_2d_enabled(enabled: bool) -> void:
+	_preview_2d_enabled = enabled
 	
 	var spatial_editor: EditorDock = EditorInterface.get_dock_by_name("3D")
 	
-	if new: 
+	if enabled: 
 		spatial_editor.visibility_changed.connect(_update_preview_2d)
 		if not scene_changed.is_connected(_update_preview_2d): scene_changed.connect(_update_preview_2d.unbind(1), CONNECT_DEFERRED)
 		if not EditorInterface.get_editor_undo_redo().history_changed.is_connected(_update_preview_2d): 
@@ -69,9 +70,9 @@ func _update_preview_2d() -> void:
 	if not scene_root: return
 	
 	for canvas_layer in scene_root.find_children("*", "CanvasLayer", true, false):
-		var cl: CanvasLayer = canvas_layer.duplicate()
-		viewport_3d.add_child(cl)
-		_preview_2d_canvas_layers.append(cl)
+		var layer: CanvasLayer = canvas_layer.duplicate()
+		viewport_3d.add_child(layer)
+		_preview_2d_canvas_layers.append(layer)
 
 
 func is_preview_2d_enabled() -> bool: 
@@ -85,18 +86,13 @@ func is_preview_2d_enabled() -> bool:
 var _preview_3d_viewport_container: SubViewportContainer
 
 
-func _set_preview_3d_enabled(new: bool) -> void:
-	if new: scene_changed.connect(_update_preview_3d)
-	elif scene_changed.is_connected(_update_preview_3d): scene_changed.disconnect(_update_preview_3d)
-	_update_preview_3d(EditorInterface.get_edited_scene_root() if new else null)
-
-
-func _update_preview_3d(scene_root: Node) -> void:
+func _set_preview_3d_enabled(enabled: bool) -> void:
+	
 	if _preview_3d_viewport_container:
 		_preview_3d_viewport_container.queue_free()
 		_preview_3d_viewport_container = null
 	
-	if not scene_root: return
+	if not enabled: return
 	
 	var canvas_editor: EditorDock = EditorInterface.get_dock_by_name("2D")
 	
@@ -104,13 +100,13 @@ func _update_preview_3d(scene_root: Node) -> void:
 	_preview_3d_viewport_container.visible = canvas_editor.visible
 	
 	tree_exiting.connect(_preview_3d_viewport_container.queue_free)
-	scene_changed.connect(_preview_3d_viewport_container.queue_free.unbind(1))
 	
 	canvas_editor.hidden.connect(_preview_3d_viewport_container.hide)
 	canvas_editor.draw.connect(_preview_3d_viewport_container.show)
 	
-	scene_root.add_child(_preview_3d_viewport_container)
-	scene_root.move_child(_preview_3d_viewport_container, 0)
+	var parent := EditorInterface.get_editor_viewport_2d()
+	parent.add_child(_preview_3d_viewport_container)
+	parent.move_child(_preview_3d_viewport_container, 0)
 	
 	var sub_viewport := SubViewport.new()
 	sub_viewport.size.x = ProjectSettings.get_setting("display/window/size/viewport_width")
